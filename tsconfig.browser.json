@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "es2024", "lib": ["es2024", "DOM", "DOM.Iterable"],
+    "module": "preserve", "moduleResolution": "bundler", "types": ["vite/client"],
+    "jsx": "react-jsx", "strict": true, "noEmit": true, "skipLibCheck": true,
+    "verbatimModuleSyntax": true, "allowImportingTsExtensions": true
+  },
+  "include": ["src/client", "src/shared"],
+  "exclude": ["src/client/tracking.worker.ts"]
+}

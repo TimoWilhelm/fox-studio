@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "es2024", "lib": ["es2024", "WebWorker"],
+    "module": "preserve", "moduleResolution": "bundler", "strict": true,
+    "noEmit": true, "skipLibCheck": true, "verbatimModuleSyntax": true
+  },
+  "include": ["src/client/tracking.worker.ts", "src/shared"]
+}

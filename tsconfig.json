@@ -1,0 +1,28 @@
+{
+	"compilerOptions": {
+		"target": "es2024",
+		"lib": [
+			"es2024"
+		],
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"types": [
+			"vite/client",
+			"node"
+		],
+		"jsx": "react-jsx",
+		"strict": true,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true
+	},
+	"include": [
+		"src/index.ts",
+		"src/server",
+		"src/shared",
+		"cloudflare.config.ts",
+		".cloudflare/types"
+	]
+}

@@ -1,0 +1,1 @@
+MediaPipe Tasks Vision and Face Landmarker assets are distributed under the Apache License 2.0. Source and model documentation: https://github.com/google-ai-edge/mediapipe and https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker . Version 1 float16 model; npm/WASM version is pinned in package-lock.json. All inference runs locally in the browser.

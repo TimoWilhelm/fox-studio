@@ -1,0 +1,15 @@
+Fox — Quaternius
+
+This 3D asset is dedicated to the public domain under CC0 1.0 Universal.
+The author's CC0 designation is displayed on the source model page:
+https://poly.pizza/m/Bc97C66HKi
+
+License and full legal code:
+https://creativecommons.org/publicdomain/zero/1.0/
+https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+Original author: https://quaternius.com/
+The original GLB is preserved without modification. See the provenance JSON
+for its SHA-256 checksum and this application's runtime adaptations.
+The same dedication applies to the model-derived sleeping portrait.
+Application code is licensed separately.
