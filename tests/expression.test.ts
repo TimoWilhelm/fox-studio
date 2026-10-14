@@ -14,6 +14,23 @@ describe('fox expression mapping', () => {
     expect(pose.browLeft).toBeGreaterThan(0); expect(pose.browRight).toBeLessThan(0);
     expect(pose.smileLeft).toBeCloseTo(.9); expect(pose.smileRight).toBe(0);
   });
+  it('maps tongue visibility independently from mouth opening and clamps bad samples', () => {
+    expect(mapFace(face({ jawOpen: 1 })).tongue).toBe(0);
+    expect(mapFace({ ...face({ jawOpen: .2 }), tongue: .8 }).tongue).toBe(.8);
+    expect(mapFace(face({ tongueOut: .7 })).tongue).toBe(.7);
+    for (const tongue of [NaN, Infinity, -1]) expect(mapFace({ ...face(), tongue }).tongue).toBe(0);
+    expect(mapFace({ ...face(), tongue: 3 }).tongue).toBe(1);
+  });
+  it('smooths and retracts the tongue on face loss and reset', () => {
+    const smoother = new PoseSmoother();
+    smoother.update({ ...face({}, 0), tongue: 1 });
+    expect(smoother.tick(0).tongue).toBeGreaterThan(0);
+    expect(smoother.tick(300).tongue).toBeGreaterThan(.9);
+    smoother.update({ ...face({}, 350), found: false });
+    expect(smoother.tick(2000).tongue).toBeLessThan(.001);
+    smoother.reset();
+    expect(smoother.tick(2010).tongue).toBe(0);
+  });
   it('handles absent, negative, nonfinite coefficients and invalid matrices safely', () => {
     expect(mapFace(face())).toEqual(neutralPose());
     const pose = mapFace({ ...face({ eyeBlinkLeft: Infinity, mouthSmileLeft: NaN, mouthSmileRight: .6, eyeSquintLeft: -3, eyeLookUpLeft: 10 }), matrix: new Array(16).fill(NaN) });

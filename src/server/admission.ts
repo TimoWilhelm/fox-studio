@@ -26,7 +26,10 @@ export class SessionAdmission extends DurableObject<Env> {
   }
   async acquire(instance: string): Promise<boolean> {
     const sql = this.ctx.storage.sql;
-    if (sql.exec('SELECT instance FROM leases').toArray().length) return false;
+    const capacity = Number(this.env.MAX_CONCURRENT_SESSIONS);
+    if (!Number.isSafeInteger(capacity) || capacity < 1) return false;
+    if (sql.exec<{ count: number }>('SELECT COUNT(*) AS count FROM leases').one().count >= capacity) return false;
+    if (sql.exec('SELECT instance FROM leases WHERE instance = ?', instance).toArray().length) return false;
     sql.exec('INSERT INTO leases (instance, expires_at) VALUES (?, ?)', instance, Date.now() + PREPARE_MS);
     await this.scheduleNext();
     return true;

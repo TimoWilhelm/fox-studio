@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('cloudflare:workers', () => ({ DurableObject: class { constructor(public ctx: DurableObjectState, public env: Env) {} } }));
 import { SessionAdmission } from '../src/server/admission';
+import { MAX_CONCURRENT_SESSIONS } from '../src/shared/capacity';
 let database: DatabaseSync, admission: SessionAdmission, ctx: DurableObjectState;
 const abortSession = vi.fn();
 beforeEach(() => {
@@ -11,7 +12,7 @@ beforeEach(() => {
     const rows = sql.startsWith('CREATE') ? (database.exec(sql), []) : database.prepare(sql).all(...bindings);
     return { toArray: () => rows, one: () => { if (rows.length !== 1) throw new Error('Expected one row'); return rows[0]; } };
   } }, setAlarm: vi.fn(async () => {}), deleteAlarm: vi.fn(async () => {}) }, exports: { MediaContainer: { getByName: vi.fn(() => ({ abortSession })) } } } as unknown as DurableObjectState;
-  admission = new SessionAdmission(ctx, {} as Env);
+  admission = new SessionAdmission(ctx, { MAX_CONCURRENT_SESSIONS: '1' } as Env);
   abortSession.mockReset().mockImplementation(async instance => { await admission.release(instance); });
 });
 afterEach(() => { database.close(); vi.useRealTimers(); });
@@ -26,7 +27,7 @@ describe('Encoder admission with persistent SQLite state', () => {
   });
   it('retains isolation and capacity across object reconstruction', async () => {
     await admission.acquire('alice');
-    admission = new SessionAdmission(ctx, {} as Env);
+    admission = new SessionAdmission(ctx, { MAX_CONCURRENT_SESSIONS: '1' } as Env);
     expect(await admission.acquire('bob')).toBe(false);
     expect(await admission.commit('bob')).toBe(false);
     expect(await admission.commit('alice')).toBe(true);
@@ -57,5 +58,43 @@ describe('Encoder admission with persistent SQLite state', () => {
     vi.setSystemTime(Date.now() + 601_000); await admission.alarm();
     expect(database.prepare('SELECT COUNT(*) AS count FROM verification_limits').get()?.count).toBe(0);
     expect(await admission.checkVerification('ip-hash')).toBe(true);
+  });
+  it('admits twenty distinct production sessions atomically and rejects overflow', async () => {
+    admission = new SessionAdmission(ctx, { MAX_CONCURRENT_SESSIONS: String(MAX_CONCURRENT_SESSIONS) } as Env);
+    const results = await Promise.all(Array.from({ length: 25 }, (_, index) => admission.acquire(`visitor-${index}`)));
+    expect(results.filter(Boolean)).toHaveLength(20);
+    expect(database.prepare('SELECT COUNT(*) AS count FROM leases').get()?.count).toBe(20);
+    await admission.release('unrelated-visitor');
+    expect(await admission.acquire('overflow')).toBe(false);
+    await admission.release('visitor-7');
+    expect(await admission.acquire('replacement')).toBe(true);
+    expect(await admission.commit('visitor-8')).toBe(true);
+    expect(await admission.commit('visitor-7')).toBe(false);
+    admission = new SessionAdmission(ctx, { MAX_CONCURRENT_SESSIONS: '20' } as Env);
+    expect(await admission.acquire('after-restart')).toBe(false);
+    expect(await admission.commit('replacement')).toBe(true);
+  });
+  it('rejects duplicate reservations without consuming another slot', async () => {
+    admission = new SessionAdmission(ctx, { MAX_CONCURRENT_SESSIONS: '20' } as Env);
+    expect(await admission.acquire('alice')).toBe(true);
+    expect(await admission.acquire('alice')).toBe(false);
+    expect(await admission.acquire('bob')).toBe(true);
+    expect(database.prepare('SELECT COUNT(*) AS count FROM leases').get()?.count).toBe(2);
+  });
+  it('retains only failed cleanup reservations while freeing the other production slots', async () => {
+    admission = new SessionAdmission(ctx, { MAX_CONCURRENT_SESSIONS: '20' } as Env);
+    for (let index = 0; index < 20; index++) await admission.acquire(`visitor-${index}`);
+    vi.setSystemTime(Date.now() + 121_000);
+    abortSession.mockRejectedValueOnce(new Error('Temporary stop failure'));
+    await admission.alarm();
+    expect(database.prepare('SELECT instance FROM leases').all()).toEqual([{ instance: 'visitor-0' }]);
+    expect(await admission.acquire('fresh-visitor')).toBe(true);
+    expect(await admission.commit('visitor-1')).toBe(false);
+  });
+  it('fails closed for missing or invalid configured capacity', async () => {
+    for (const capacity of [undefined, '0', '-1', '1.5', 'Infinity', '9007199254740992', 'NaN', '']) {
+      admission = new SessionAdmission(ctx, { MAX_CONCURRENT_SESSIONS: capacity } as Env);
+      expect(await admission.acquire('alice')).toBe(false);
+    }
   });
 });

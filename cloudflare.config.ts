@@ -1,6 +1,8 @@
 import { loadEnvFile } from 'node:process';
 import { bindings, defineConfig, defineContainer, exports } from "cf/config";
 import * as entrypoint from "./src/index.ts" with { type: "cf-worker" };
+import { MAX_CONCURRENT_SESSIONS } from './src/shared/capacity.ts';
+import { streamlineImage } from './src/shared/streamline-image.ts';
 
 try { loadEnvFile('.env'); } catch (error) {
   if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -9,13 +11,15 @@ try { loadEnvFile('.env'); } catch (error) {
 const appOrigin = new URL(process.env.APP_ORIGIN || 'https://fox.example').origin;
 if (!appOrigin.startsWith('https://')) throw new Error('APP_ORIGIN must use HTTPS.');
 
-const container = defineContainer({
+const container = defineContainer(({ mode }) => ({
   name: 'fox-studio-media',
-  image: { dockerfile: './vendor/streamline/container/Dockerfile', buildContext: './vendor/streamline/container' },
+  image: mode === 'development'
+    ? { dockerfile: './scripts/streamline.Dockerfile', buildVars: { STREAMLINE_IMAGE: streamlineImage(process.env.STREAMLINE_CONTAINER_IMAGE) } }
+    : { reference: streamlineImage(process.env.STREAMLINE_CONTAINER_IMAGE) },
   instanceType: 'standard-4',
-  maxInstances: 1,
+  maxInstances: MAX_CONCURRENT_SESSIONS,
   observability: { enabled: true, logs: { enabled: true } },
-});
+}));
 
 export default defineConfig(({ mode }) => ({
   accountId: process.env.CLOUDFLARE_ACCOUNT_ID || undefined,
@@ -34,6 +38,7 @@ export default defineConfig(({ mode }) => ({
 			ASSETS: bindings.assets(),
 			ALLOWED_ORIGINS: bindings.text(mode === 'development' ? 'http://127.0.0.1:5173,http://localhost:5173' : appOrigin),
 			MAX_SESSION_DURATION_SECONDS: bindings.text('1800'),
+			MAX_CONCURRENT_SESSIONS: bindings.text(String(mode === 'development' ? 1 : MAX_CONCURRENT_SESSIONS)),
 			TURNSTILE_SITEKEY: bindings.text(process.env.TURNSTILE_SITEKEY || ''),
 			TURNSTILE_HOSTNAMES: bindings.text(mode === 'development' ? 'localhost,127.0.0.1' : new URL(appOrigin).hostname),
 			TURNSTILE_SECRET: mode === 'development' ? bindings.text('local-only') : bindings.secret(),

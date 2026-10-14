@@ -11,6 +11,22 @@ beforeAll(async () => { const buffer = await readFile(new URL('../public/models/
 const load = async () => createFoxRig(await new GLTFLoader().parseAsync(modelBytes.slice(0), ''));
 
 describe('Quaternius fox avatar', () => {
+  it('extends the tongue only when tracked and retracts it independently of the jaw', async () => {
+    const rig = await load();
+    animateFox(rig, frame({ mouth: .9 }));
+    expect(rig.tongue.visible).toBe(false);
+    animateFox(rig, frame({ mouth: .4, tongue: .4 }));
+    expect(rig.tongue.visible).toBe(true);
+    const height = rig.tongue.scale.y, position = rig.tongue.position.y;
+    animateFox(rig, frame({ mouth: .4, tongue: 1 }));
+    expect(rig.tongue.scale.y).toBeGreaterThan(height);
+    expect(rig.tongue.position.y).toBeLessThan(position);
+    animateFox(rig, frame({ tongue: 1 }));
+    expect(rig.opening.visible).toBe(true);
+    animateFox(rig, frame());
+    expect(rig.tongue.visible).toBe(false);
+    disposeScene(rig.root);
+  });
   it('loads the actual animal model and drives independent face channels', async () => {
     const rig = await load();
     expect(rig.meshes).toHaveLength(5);

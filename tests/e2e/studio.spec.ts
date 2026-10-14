@@ -201,7 +201,7 @@ test('a failed fox download gives a reload action without opening the camera', a
 });
 
 
-test('separate visitors cannot control another session or consume its encoder slot', async ({ page, context }) => {
+test('separate visitors cannot control another session or consume the single local encoder slot', async ({ page, context }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await expectLive(page);

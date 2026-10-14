@@ -1,4 +1,7 @@
 import { spawnSync } from 'node:child_process';
+import { loadEnvFile } from 'node:process';
+import { streamlineImage } from '../src/shared/streamline-image.ts';
+try { loadEnvFile('.env'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
 const name = 'fox-studio-local';
 function docker(args, checked = true) {
   const result = spawnSync('docker', args, { stdio: 'inherit' });
@@ -6,12 +9,14 @@ function docker(args, checked = true) {
 }
 if (process.argv[2] === 'stop') docker(['stop', name], false);
 else {
+  const image = streamlineImage(process.env.STREAMLINE_CONTAINER_IMAGE);
   docker(['info', '--format', '{{.ServerVersion}}']);
-  const exists = spawnSync('docker', ['inspect', name], { stdio: 'ignore' }).status === 0;
-  if (exists) docker(['start', name]);
+  if (spawnSync('docker', ['image', 'inspect', image], { stdio: 'ignore' }).status !== 0) docker(['pull', '--platform', 'linux/amd64', image]);
+  const existing = spawnSync('docker', ['inspect', '--format', '{{.Config.Image}}', name], { encoding: 'utf8' });
+  if (existing.status === 0 && existing.stdout.trim() !== image) { docker(['stop', name]); docker(['rm', name]); }
+  if (existing.status === 0 && existing.stdout.trim() === image) docker(['start', name]);
   else {
-    docker(['build', '-t', 'fox-studio-streamline:0.1.0', './vendor/streamline/container']);
-    docker(['run', '-d', '--name', name, '-p', '127.0.0.1:8788:8080', '-e', 'MAX_SESSION_DURATION_SECONDS=1800', '-e', 'ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173', 'fox-studio-streamline:0.1.0']);
+    docker(['run', '-d', '--platform', 'linux/amd64', '--name', name, '-p', '127.0.0.1:8788:8080', '-e', 'MAX_SESSION_DURATION_SECONDS=1800', '-e', 'ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173', image]);
   }
   let ready = false;
   for (let i = 0; i < 50; i++) {

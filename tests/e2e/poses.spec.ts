@@ -12,6 +12,7 @@ test('deterministic facial poses render without WebGL errors or clipping', async
     { name: 'left-wink', pose: { blinkLeft: .65, browLeft: .5, gazeX: -.5 } },
     { name: 'right-wink', pose: { blinkRight: .65, browRight: .5, gazeX: .5 } },
     { name: 'smile', pose: { mouth: .75, smile: .9, smileLeft: .9, smileRight: .9, browLeft: .5, browRight: .5 } },
+    { name: 'tongue', pose: { mouth: .4, tongue: 1 } },
     { name: 'turn', pose: { yaw: .6, pitch: -.45, roll: .45, gazeX: -.6, squintRight: .7 } },
   ];
   await page.evaluate(async () => {
@@ -29,6 +30,7 @@ test('deterministic facial poses render without WebGL errors or clipping', async
       renderer.draw({ ...neutralPose(), ...pose }, 0, 'paper', !['sleep', 'snooze'].includes(name), name !== 'snooze');
       renderer.draw({ ...neutralPose(), ...pose }, 1700, 'paper', !['sleep', 'snooze'].includes(name), name !== 'snooze');
     }, { pose, name });
+    if (name === 'tongue') expect(await page.evaluate(() => (window as any).poseRenderer.rig.tongue.visible)).toBe(true);
     if (name === 'left-wink' || name === 'right-wink') {
       const eyes = await page.evaluate(() => {
         const renderer = (window as any).poseRenderer;

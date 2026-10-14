@@ -128,7 +128,7 @@ export function createFoxRig(gltf: GLTF) {
   mouth.quaternion.copy(headBone.getWorldQuaternion(new Quaternion()).invert());
   mouth.scale.setScalar(.01);
   const opening = new Mesh(new SphereGeometry(1, 20, 12), ink); mouth.add(opening);
-  const tongue = new Mesh(new CircleGeometry(1, 24), pink); mouth.add(tongue);
+  const tongue = new Mesh(new SphereGeometry(1, 20, 12), pink); mouth.add(tongue);
   const lips = [-1, 1].map(side => {
     const points = [[0, .025, .003], [side * .025, -.009, .008], [side * .065, .015, -.008]].map(([x, y, z]) => new Vector3(x, y, z));
     const lip = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 12, .0035, 5, false), ink); mouth.add(lip); return lip;
@@ -204,15 +204,16 @@ export function animateFox(rig: FoxRig, frame: AvatarFrame, time = 0, reducedMot
     const perk = (1 - frame.earDrop) * (brow * .065 + frame.smile * .035);
     bone.quaternion.copy(rest).multiply(new Quaternion().setFromEuler(new Euler(-frame.earDrop * .28 + perk, 0, (i === 0 ? 1 : -1) * frame.earDrop * .15)));
   });
-  const open = clamp(frame.mouth), smile = clamp(frame.smile);
+  const tongue = clamp(frame.tongue);
+  const open = Math.max(clamp(frame.mouth), tongue * .35), smile = clamp(frame.smile);
   const mouthOpen = open > .045;
   const width = .06 + smile * .035, height = .003 + open * .075;
   rig.opening.visible = mouthOpen;
   rig.opening.scale.set(width, height, .015);
   rig.opening.position.y = -open * .024;
-  rig.tongue.visible = open > .18;
-  rig.tongue.scale.set(width * .48, height * .25, 1);
-  rig.tongue.position.set(0, rig.opening.position.y - height * .5, .0155);
+  rig.tongue.visible = tongue > .06 && mouthOpen;
+  rig.tongue.scale.set(width * (.38 + tongue * .18), .008 + tongue * .045, .004 + tongue * .015);
+  rig.tongue.position.set(0, rig.opening.position.y - height * .45 - tongue * .035, .019 + tongue * .01);
   rig.lips.forEach((lip, i) => {
     lip.visible = !mouthOpen;
     lip.rotation.z = (i === 0 ? -1 : 1) * (i === 0 ? frame.smileRight : frame.smileLeft) * .45;

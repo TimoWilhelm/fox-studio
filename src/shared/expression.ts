@@ -1,16 +1,16 @@
 export interface Pose {
   blinkLeft: number; blinkRight: number; squintLeft: number; squintRight: number;
-  gazeX: number; gazeY: number; mouth: number;
+  gazeX: number; gazeY: number; mouth: number; tongue: number;
   smile: number; smileLeft: number; smileRight: number;
   brow: number; browLeft: number; browRight: number;
   yaw: number; pitch: number; roll: number;
 }
 export const neutralPose = (): Pose => ({
   blinkLeft: 0, blinkRight: 0, squintLeft: 0, squintRight: 0, gazeX: 0, gazeY: 0,
-  mouth: 0, smile: 0, smileLeft: 0, smileRight: 0, brow: 0, browLeft: 0, browRight: 0,
+  mouth: 0, tongue: 0, smile: 0, smileLeft: 0, smileRight: 0, brow: 0, browLeft: 0, browRight: 0,
   yaw: 0, pitch: 0, roll: 0,
 });
-export interface FaceSample { coefficients: Record<string, number>; matrix: number[]; timestamp: number; found: boolean }
+export interface FaceSample { coefficients: Record<string, number>; matrix: number[]; timestamp: number; found: boolean; tongue?: number }
 export const clamp = (value: number, min = 0, max = 1) => Math.max(min, Math.min(max, Number.isFinite(value) ? value : 0));
 
 export function mapFace(sample: FaceSample): Pose {
@@ -31,6 +31,7 @@ export function mapFace(sample: FaceSample): Pose {
     gazeX: clamp((c('eyeLookInLeft') - c('eyeLookOutLeft') + c('eyeLookOutRight') - c('eyeLookInRight')) / 2, -1, 1),
     gazeY: clamp((c('eyeLookUpLeft') + c('eyeLookUpRight') - c('eyeLookDownLeft') - c('eyeLookDownRight')) / 2, -1, 1),
     mouth: clamp(c('jawOpen') * 1.7),
+    tongue: clamp(sample.tongue ?? c('tongueOut')),
     smile: clamp((c('mouthSmileLeft') + c('mouthSmileRight')) / 2 * 1.5), smileLeft, smileRight,
     brow,
     browLeft: clamp(brow * .65 + c('browOuterUpLeft') * .7 - c('browDownLeft') * .7, -1, 1),
